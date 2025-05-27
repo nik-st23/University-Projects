@@ -1,0 +1,135 @@
+---
+title: \Huge Time Series Coursework
+author: |
+  \large Gianluca Fiorini \ \
+  \large Tommaso Di Bene \ \
+  \large Riccardo Visentini \ \
+  \large Nikola Stevanovic
+date: "a.y. 2023 - 2024"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE, echo = F}
+knitr::opts_chunk$set(echo = TRUE)
+library(TSA)
+library(knitr)
+library(formatR)
+setwd("C:/Users/comet/Desktop")
+data <- read.csv("LNS14000006.csv", header = T, sep = ",")
+unbl <- as.ts(data$LNS14000006)
+```
+
+\newpage
+
+## Premises
+
+In this paper we will analyse time series data concerning the Unemployment Rate of Black or African Americans in the United States, which we retrieved from FRED at the following link:
+
+<https://fred.stlouisfed.org/series/LNS14000006>.
+
+The data were collected monthly on the first day of each month by the US Bureau of Labor Statistics, starting January 1972 up until February 2024. They were gathered from the "Current Population Survey (Household Survey)". The data are reported as percentages and were adjusted for seasonality.
+
+We show the first few observations in the time series:
+
+```{r, echo = F, fig.align='center', fig.cap="Table 1"}
+kable(head(data))
+
+```
+
+To perform the analysis we will make use of the R software. Specifically, we will use built-in R functions and functions from the "TSA" package. This document was produced using R Markdown.
+
+## Preliminary Analysis
+
+Firstly, we present a plot of the time series.
+
+```{r echo = F, include  = T, fig.align='center', out.width = "75%", fig.cap= "Unemployment Rate of Black and African Americans"}
+par(cex.lab = 0.8, cex.axis = 0.8)
+ts.plot(unbl, gpars = list(xlab = "Time", ylab = "Unemployment Rate"))
+```
+
+From the plot (Figure 1), the time series does not appear stationary. One can clearly spot a decreasing trend in the mean over time. On the other hand, the variance of the time series appears constant over time, thus we will **not** apply any transformation to the data in order to stabilize the variance. We also note an outlying observation corresponding to the year 2020 (just before time lag 600 in the plot), which can be attributed to the COVID-19 pandemic.
+
+This considerations on stationarity are supported by the very slow linear decay of the ACF of the series, typical of non-stationary processes (Figure 2).
+
+```{r, echo = F, fig.margin = T, out.width= "50%", fig.cap = "Sample ACF for the time series", fig.align='center'}
+acf(unbl, main = "")
+
+```
+
+------------------------------------------------------------------------
+
+Based on the above considerations, we will now take the first differences of the series in hopes of removing the decreasing trend in the mean value.
+
+```{r, echo = T, out.width= "50%",fig.cap = "First differences of the original time series",tidy = T, tidy.opts=list(width.cutoff=50), fig.align='center'}
+d_unbl <- diff(unbl) #unbl is the vector containing the original time series observations
+ts.plot(d_unbl, gpars = list(main = "", ylab = "First Differences of Unemployment rate"))
+abline(h = 0, col = "red", lty = "dashed", lwd = 1.2)
+```
+
+The first differenced series, appears stationary with respect to the mean, as it oscillates around the $y = 0$ the line. Again, we note an outlying observation corresponding to the year 2020, originating from the COVID-19 pandemic. Lastly, we point out that even after differencing a transformation to stabilize the data appears unnecessary.
+
+Since the differenced series appears stationary, we conclude that the stochastic process generating the series is likely an integrated process of order 1.
+
+\hrulefill
+
+Let us now compute a few summary statistics for the differenced time series:
+
+\small
+
+```{r, echo = F, fig.align= "center", fig.cap = "Table 2"}
+require(TSA)
+xbar <- mean(d_unbl) 
+var <- var(d_unbl) 
+kur <- kurtosis(d_unbl) 
+skew <- skewness(d_unbl)
+
+S <- matrix(c(xbar, var, skew, kur),
+            ncol = 1)
+rownames(S) <- c("Mean", "Variance", "Skewness", "Kurtosis")
+colnames(S) <- c("Statistics")
+
+kable(as.data.frame(S))
+```
+
+\normalsize
+
+The value of the sample mean suggests that the underlying process is in fact zero-mean. The high positive skew and high positive kurtosis are most likely due entirely to the outlying observation in 2020.
+
+## Model Estimation & Order Selection
+
+At this point, we start looking for a stochastic process that can model the process which generated the data suitably well. To do that, we first look at the sample ACF and sample PACF of the differenced series.
+
+```{r, echo = F, out.width="50%", fig.ncol=2, fig.show = "hold", fig.cap="Sample ACF and PACF for differenced series"}
+acf(d_unbl, drop.lag.0 = F, main = "")
+pacf(d_unbl, main = "")
+
+```
+
+In the sample ACF, we see a significant spike at lag 1 and then no further significant spikes. Similarly, in the sample PACF we see a significant spike at lag 1 and no further significant spikes.
+
+Since the sample ACF of the differenced time series behaves like the ACF of an MA(1) process:
+
+$$
+X_t = \epsilon_t - \theta \epsilon_{t-1},\:\:\:\epsilon_t \sim WN(0,\: \sigma^2)
+$$
+
+A suitable choice for the **original** time series would be an ARIMA(0, 1, 1) model:
+
+$$
+(1\:-\:L)X_t = (1\:-\:\theta L)\epsilon_t, \:\:\:\epsilon_t \sim WN(0,\: \sigma^2)
+$$
+
+Where L is the lag operator.
+
+\newpage
+
+We thus fit such a model using the arima( ) function, to obtain:
+
+```{r, echo = T, comment = ">"}
+arima011 <- arima(unbl, order = c(0, 1, 1))
+print(arima011)
+```
+
+**Note**: R uses a different notation for ARIMA models in which the MA coefficients have a "+" sign instead of a "-" in front. We will stick to the notation we introduced above by simply inverting the sign of the coefficient in the R output.
