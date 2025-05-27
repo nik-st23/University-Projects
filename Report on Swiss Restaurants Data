@@ -1,0 +1,1049 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{wrapfig}
+\usepackage{listings}
+\usepackage{xcolor} % Optional, for syntax highlighting
+
+% Language setting
+% Replace `english' with e.g. `spanish' to change the document language
+\usepackage[english]{babel}
+
+% Set page size and margins
+% Replace `letterpaper' with `a4paper' for UK/EU standard size
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{booktabs}
+\usepackage{float}     % For enforcing figure placement
+\usepackage{placeins}  % For \FloatBarrier
+\usepackage{hyperref}
+
+\title{Report on Swiss Restaurants Data}
+\author{Federico Scatigno,      
+Nikola Stevanović, 
+Yaiza Ortega 
+}
+
+\begin{document}
+\maketitle
+
+
+
+\section{Introduction}
+
+This report is a data analysis conducted on the restaurants.dat database provided by the Swiss Link market research institute. It includes information on 1033 individuals who participated in a survey that contained 18 questions relating to various aspects of restaurants. Each question is a single variable concerning common aspects of food, service, and atmosphere.
+The analysis will focus on the variable \texttt{g27a}, which measures general satisfaction with the restaurant and the impact the other observed variables have on it. It will also try to graph the correlation and structure of the remaining variables, discussing the missing values (NAs) 
+
+
+\section{Statistical Analysis}
+
+Before diving into any modeling or statistical analysis, we first examined the missing values in the dataset. The missing data primarily came from the responses coded as 11 and 12. To explore the frequency of missing values in different variables we used the \texttt{vis\_miss\(\)} function, which helped us understand the distribution, potential impact of missing values, as well as their origin. We see that variables with the highest frequency of missing values are g06f, g06e, and g14d. We also color-coded them differently depending on their origin.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Heatplot_of_NAs.png}
+\end{figure}
+\section{Statistical Analysis}
+
+First of all by looking at the output of OLS regression we see that the variables with the highest frequency of missing values were not significantly influencing the outcome variable (g27a). This might, however, be the product of missing values. Their low correlation, might on the other hand indicate to lower impact. Instead of removing variables, we developed a new column that combines the outcome of these values. Then we used MICE to fill in the missing values systematically. Similar results can be seen after applying robust regression.
+We also spotted a low p-value for Fstatistic which suggests, there is at least one regressor that potentially influences the g27a
+
+% Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
+% Date and time: Mon, Mar 24, 2025 - 19:09:43
+\begin{table}[!htbp] \centering 
+  \caption{OLS Regression Results} 
+  \label{tab:ols_results}
+\begin{tabular}{@{\extracolsep{5pt}}lc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & \multicolumn{1}{c}{\textit{Dependent variable:}} \\ 
+\cline{2-2} 
+\\[-1.8ex] & g27a \\ 
+\hline \\[-1.8ex] 
+ g06f & $-$0.003 \\ 
+  & (0.018) \\ 
+  & \\ 
+ g06e & 0.005 \\ 
+  & (0.015) \\ 
+  & \\ 
+ g14d & 0.066$^{*}$ \\ 
+  & (0.034) \\ 
+  & \\ 
+ Constant & 0.045 \\ 
+  & (0.377) \\ 
+  & \\ 
+\hline \\[-1.8ex] 
+Observations & 442 \\ 
+R$^{2}$ & 0.708 \\ 
+Adjusted R$^{2}$ & 0.696 \\ 
+Residual Std. Error & 0.924 (df = 424) \\ 
+F Statistic & 60.387$^{***}$ (df = 17; 424) \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Note:}  & \multicolumn{1}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+\end{tabular} 
+\end{table} 
+\begin{figure}[h]
+    \centering
+    \includegraphics[height=0.4\textwidth]{Rplot09.png}
+\end{figure}
+\subsection{Creating an Index and Imputation process}
+Rather than removing missing data completely, we devised the method where we created a new column in which we combined the values from the two columns respectively. If both values for the same observation were present we would take the mean. If the value of public transport is the only one present we would consider that one, and the same goes for parking spots. If both values are missing we were going to write NA. This comes from the understanding that the people who commute by car do not have experience of public transport, and would rather not answer the question regarding it. The same could be said about public transport. These two variables are complementary in that sense.
+We used \texttt{mice\(\)} to generate multiple imputed datasets, and the final dataset was the first data set produced, using the \texttt{complete\(\)} function. We then confirmed that MICE worked by once again using the \texttt{vis\_miss\(\)} function.
+
+\subsection{Cross validation}
+To quantify the relationship between g27a and the explanatory variables, we applied Ordinary Least Squares (OLS) regression and Robust Regression (lmrob). We did this on the first dataset computed using MICE. To ensure model reliability, we performed Leave-One-Out Cross-Validation (LOO-CV), which allowed us to compare model performance based on absolute loss. OLS regression performed better according to L1loss and SQLoss, suggesting there might not have been a big influence of outliers on the model. However, when looking into predicted values, we see that robust regression was better at predicting far outliers as well as maximum values. From this, we can conclude that even though, the metrics show that the OLS model is better, the robust regression better mimics the real data
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Comparison_lOo-cv.png}
+\end{figure}
+
+\subsection{Variable Clustering with Principal Components}
+
+\subsubsection{Explanation of the Algorithm}
+
+This section discusses dimensionality reduction methods combined with robust regression modeling. The main approach we propose for clustering variables is introduced in this \href{https://www.jstatsoft.org/article/view/v050i13}{paper}. The \textbf{ClustOfVar} framework uses a hierarchical agglomerative clustering algorithm to group variables, structured as follows.
+
+Each cluster is summarized by a synthetic variable that retains and compresses the cluster's information.\\ Given a partition \( \mathcal{P}_K = \{ C_1, \dots, C_K \} \) of \( K \) clusters, the synthetic variable \( c_k \) for cluster \( C_k \) is defined as the solution of this optimization problem:
+\[
+c_k = \underset{u \in \mathbb{R}^n}{\operatorname{arg\,max}} \sum_{x_j \in C_k} r^2(u, x_j),
+\]
+where \( r^2(u, x_j) \) is the squared Pearson’s correlation coefficient.
+
+Cluster quality is measured by:
+\[
+H(C_k) = \sum_{x_j \in C_k} r^2(x_j, c_k),
+\]
+which can be shown to equal the first eigenvalue \( \lambda_1(C_k) \) of the standardized variables in \( C_k \).\\ If \( \lambda_1(C_k) \) is close to the number of variables, the cluster \( C_k \) is well-represented by the synthetic variable \( c_k \).
+
+The dissimilarity between two clusters \( C_1 \) and \( C_2 \) is:
+\[
+d(C_1, C_2) = H(C_1) + H(C_2) - H(C_1 \cup C_2) = \lambda_1(C_1) + \lambda_1(C_2) - \lambda_1(C_1 \cup C_2).
+\]
+A lower \( d(C_1, C_2) \) means less information loss when merging \( C_1 \) and \( C_2 \) and representing their union with the synthetic variable \( \lambda_1(C_1 \cup C_2) \).\\ The algorithm starts with \( p \) singleton clusters, where each variable has trivially \( \lambda_1(x_j) = 1 \), and iteratively merges the closest clusters until it reaches \( K \) groups.\\ Each group is then approximated by the first (standardized) principal component.
+
+For example, consider the cluster \(C_i\). Then, it will be represented by the first standardized principal component computed on \(\{x_1,\ldots,x_j\} \in C_i\).
+
+\subsubsection{Clustering of Variables with Regression}
+
+The first thing to discuss is the choice of the number of clusters.\\ The package contains a bootstrap algorithm that calculates the Adjusted Rand Index (ARI) for different values of \(K\), which gives some indication regarding the choice of the number of clusters. This provides an initial idea of how many clusters to consider.\\
+\begin{figure}[h]
+    \centering
+    \includegraphics[height=0.3\textwidth]{ARI.pdf}
+    \caption{ARI for Mice 1}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[height=0.45\textwidth]{ARI4.pdf}
+    \caption{ARI for Mice 2-5}
+\end{figure}
+
+From plot (Figure 1-2), the obvious candidate seems to be \(K=5\).\\ We also investigated \(K=3\) to assess its performance. The analysis and choice of appropriate clusters was carried out on several levels.\\ After considering the ARI, we inspected how well each variable was approximated by the synthetic cluster when using \(K=3\) and \(K=5\).\\ 
+
+Choosing \(K=3\) would definitely force some variables into clusters that would not represent them well, as Table 2 suggests that some variables are not very highly correlated to their clusters.\\
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Variable} & \textbf{Cluster (K=5)} & \textbf{Cluster (K=3)} & \textbf{Correlations with \(c_k\)} \\
+        \midrule
+        g07d  & 1  & 1  & 0.742 / 0.709  \\
+        g08c  & 2  & 2  & 0.771 / 0.771  \\
+        g09a  & 2  & 2  & 0.886 / 0.886  \\
+        g09c  & 2  & 2  & 0.735 / 0.735  \\
+        g09d  & 2  & 2  & 0.879 / 0.879  \\
+        g13a  & 1  & 1  & 0.880 / 0.855  \\
+        g13j  & 1  & 1  & 0.682 / 0.661  \\
+        g14a  & 1  & 1  & 0.859 / 0.855  \\
+        g14b  & 1  & 1  & 0.861 / 0.816  \\
+        g14d  & 1  & 1  & 0.844 / 0.825  \\
+        g15a  & 1  & 1  & 0.776 / 0.790  \\
+        g15g  & 3  & 1  & 0.837 / 0.649  \\
+        g15i  & 3  & 1  & 0.868 / 0.809  \\
+        g15l  & 3  & 1  & 0.788 / 0.643  \\
+        g16b  & 4  & 1  & 1 / 0.498  \\
+        g06   & 5  & 3  & 1 / 1  \\
+        \bottomrule
+    \end{tabular}
+    \caption{Comparison of Clusters Correlations with Synthetic variable for K=5 and K=3}
+    \label{tab:cluster_comparison}
+\end{table}
+
+For example, \(K=3\) would assign the variable \(g16b\) to a cluster (instead of leaving it as a singleton as \(K=5\) does), leading to a possible misinterpretation. Figure 3 intuitively shows that \(g16b\) should not be inserted in other Clusters.\\
+\begin{figure}[h]
+    \centering
+    \includegraphics[height=0.7\textwidth]{Heatplot.pdf}
+    \caption{Heatplot with reference of Clustered Variables (K = 5)}
+\end{figure}
+\FloatBarrier
+
+The final layer useful for choosing \(K=5\) over \(K=3\) is discussed in Section 3.3.3. The Monte Carlo Cross Validation results for predicting \(g27a\) using a robust linear regression model showed consistently lower L1 and L2 losses for \(K=3\) (an average decrease of nearly 20\%), suggesting an underfitting situation.\\
+All of these considerations have been consistently observed in all five imputed MICE datasets, which leads us to choose \(K=5\).\\
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.4\textwidth]{Dendonogram.pdf}
+    \caption{Dendrogram for Mice 1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.5\textwidth]{Dendonogram4.pdf}
+    \caption{Dendrogram for Mice 2-5}
+\end{figure}
+
+\FloatBarrier  % Prevents floating beyond this point
+
+The split into 5 clusters can be further inspected in the tables (Reference to the table with correlations). One advantage of clustering variables is that we can retain some interpretability of the full model, unlike Principal Component Analysis, which has a less immediate interpretation.\\
+
+Now, the idea is to perform a robust linear regression using the scores obtained by the algorithm, which projects the variables \(x_1, \ldots, x_j \in C_k\) into \(\mathbb{R}^1\) using \(c_k = \lambda_{C_k}^{(1)},\)
+for every \(C_k\) in the partition \(P_K\). Note that this procedure is very similar to Principal Component Regression, with the difference that the new synthetic variables are \textbf{not} uncorrelated by construction.\\
+
+\begin{table}[H]
+    \centering
+    \caption{Estimated Coefficients and P-values for Different MICE Datasets, Regression of artificial clusters on g27a}
+    \begin{tabular}{lcc}
+        \toprule
+        Cluster & Estimate & P-value \\
+        \midrule
+        \multicolumn{3}{c}{K5 for Mice 2} \\
+        Intercept & 8.021 & < 2e-16 \\
+        cluster1 & 0.450 & < 2e-16 \\
+        cluster2 & 0.212 & 2.51e-09 \\
+        cluster3 & 0.188 & 2.15e-08 \\
+        cluster4 & -0.065 & 0.117 \\
+        cluster5 & -0.043 & 0.114 \\
+        \midrule
+        \multicolumn{3}{c}{K5 for mice 3} \\
+        Intercept & 8.022 & < 2e-16 \\
+        cluster1 & 0.488 & < 2e-16 \\
+        cluster2 & 0.221 & 2.52e-11 \\
+        cluster3 & 0.092 & 0.0106 \\
+        cluster4 & -0.076 & 0.0664 \\
+        cluster5 & -0.027 & 0.3252 \\
+        \midrule
+        \multicolumn{3}{c}{K5 for mice 4} \\
+        Intercept & 8.020 & < 2e-16 \\
+        cluster1 & 0.445 & < 2e-16 \\
+        cluster2 & 0.225 & 1.28e-10 \\
+        cluster3 & 0.191 & 4.51e-08 \\
+        cluster4 & -0.097 & 0.0203 \\
+        cluster5 & -0.039 & 0.1518 \\
+        \midrule
+        \multicolumn{3}{c}{K5 for Mice 5} \\
+        Intercept & 8.023 & < 2e-16 \\
+        cluster1 & 0.436 & < 2e-16 \\
+        cluster2 & 0.222 & 3.56e-10 \\
+        cluster3 & 0.189 & 7.89e-08 \\
+        cluster4 & -0.060 & 0.146 \\
+        cluster5 & -0.029 & 0.290 \\
+        \midrule
+        \multicolumn{3}{c}{K5 for Mice 1} \\
+        Intercept & 8.022 & < 2e-16 \\
+        cluster1 & 0.492 & < 2e-16 \\
+        cluster2 & 0.222 & 1.26e-11 \\
+        cluster3 & 0.085 & 0.0174 \\
+        cluster4 & -0.072 & 0.0853 \\
+        cluster5 & -0.038 & 0.1525 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The results clearly show that\\
+- \textbf{Cluster 1 (catering)} has a very strong positive linear effect on the outcome with incredibly high significance.\\
+- \textbf{Cluster 2 (food)} has a strong positive linear effect (though lower than catering) and is highly significant.\\
+- \textbf{Cluster 3 (location)} exhibits a moderately strong positive linear effect and high significance.\\
+- The other two variables (singleton \textbf{Clusters 4 and 5}) have almost no linear effect on the dependent variable.\\
+
+These MM estimates are consistent for each imputed dataset, except for the third imputed dataset, which shows a lower linear effect and borderline significance for the synthetic variable associated with Cluster 3, likely due to differences in the imputation of missing values.
+
+\subsubsection{Cross Validation Evaluation}
+
+We aim to assess the validity of the method described above by evaluating the L1 and L2 losses and comparing them with those of two other models regressed on the outcome \(g27a\).\\
+- The first comparison model is a robust linear regression that includes all variables in the dataset.\\ 
+-The second model is a Principal Component Robust Regression, where the regressors are the first \(K=5\) principal components. This choice was made to ensure a fair comparison with the \(K=5\) clusters of variables.\\
+
+We opted for a Monte Carlo Cross Validation approach over all 5 imputed datasets:\\
+- Choose the proportion for the training and test sets; we selected a 70/30 split.\\
+- Randomly split the imputed dataset without replacement.\\
+- Iterate the process for a predetermined number of times (we chose 30 iterations).\\
+- For each split, estimate the model parameters on the training set for each of the three models mentioned.\\
+- Calculate the prediction error on the corresponding test set and estimate the L1 and L2 losses.\\
+- Repeat for each imputed dataset.\\
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.4\textwidth]{L1loss.pdf}
+    \caption{L1 loss for Mice 1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.4\textwidth]{L1loss4.pdf}
+    \caption{L1 loss for Mice 2-5}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.4\textwidth]{L2loss.pdf}
+    \caption{L2 loss for Mice 1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.4\textwidth]{L2loss4.pdf}
+    \caption{L2 loss for Mice 2-5}
+\end{figure}
+
+\FloatBarrier 
+
+The estimated average prediction errors are very similar across all imputed datasets, with only minor variations that may be due to differences in the imputations. This suggests that the two reduced dimensionality models do a good job compressing the information needed to predict \(g27a\).  \\
+It is worth noting that in all 5 imputed datasets, the full model appears to be the most volatile, often exhibiting the highest error bounds when the loss is high.  \\
+The two reduced-dimension models have very similar loss profiles. We prefer the models based on variable clustering and full regressors because of their greater interpretability, even though the practical differences among the three models seem insignificant.
+
+
+\section{Particular features of the data}
+Regarding the certain features of the data, the main objective of this article was to provide estimates of the effect of variables on overall satisfaction. The data set contained multiple variables that captured different aspects of customer satisfaction. We had to address issues such as multicollinearity and mainly missing values, so we can ensure reliable estimates of our models.\section{Conclusion for the client}
+We can conclude that the cluster that represents the general food service has the biggest effect followed by the cluster of food quality, on the general satisfaction. It further shows that the other variables' effect on general satisfaction is negligible. We should also mention that our method remained consistent over multiple datasets further suggesting the consistency of the estimates.
+\section{Appendix}.
+
+
+
+\lstset{ 
+  language=R,             % Set language to R
+  basicstyle=\ttfamily\small,  % Font style
+  keywordstyle=\color{blue},  % Keywords in blue
+  commentstyle=\color{green},  % Comments in green
+  stringstyle=\color{red},  % Strings in red
+  numbers=left,            % Display line numbers
+  numberstyle=\tiny\color{gray},  % Line number style
+  frame=single             % Add a frame around the code
+}
+
+\begin{document}
+
+Here is some R code:
+
+\begin{lstlisting}
+# R code example
+restdata <- read.table("swissrestaurants.dat",header=TRUE)
+head(restdata)
+
+restaurant_NA <- restdata
+for (i in 1:18)
+  restaurant_NA[restdata[,i] %in% c(11,12),i] <- NA
+
+######
+par(mfrow =c(1,1))
+library(corrplot)
+
+M <- cor(restdata)
+
+# Plot with both numbers and color
+corrplot(M, method = "color", type = "lower", 
+         addCoef.col = "black",  # Color of the correlation coefficient numbers
+         tl.col = "black",        # Color of the variable labels
+         col = colorRampPalette(c("blue", "white", "red"))(200))  # Custom color gradient
+############
+model <- lm(g27a~., data = restaurant_NA)
+summary(model)
+
+install.packages("stargazer")  # Install if needed
+library(stargazer)
+
+# Run OLS regression
+model <- lm(g27a~., data = restaurant_NA)
+
+# Generate LaTeX code
+stargazer(model, type = "latex")
+
+library(robustbase)
+robust_reg <- lmrob(g27a~ ., data = restaurant_NA)
+summary(robust_reg)
+############
+
+#NA's distribution
+
+# Recode the values into a numeric matrix
+conv_funct_NAs <- function(x) {
+  if (x == 11) {
+    1    
+  } else if (x == 12) {
+    2    
+  } else {
+    0    
+  }
+}
+rest_dat_NAs_distr <- apply(restdata, c(1, 2), conv_funct_NAs)
+
+# Grey --> Recorded
+# Red --> 11
+# Blue --> 12
+color_palette <- c("grey80", "red", "blue")
+
+# Create the heatplot
+image(1:ncol(rest_dat_NAs_distr), 1:nrow(rest_dat_NAs_distr), t(rest_dat_NAs_distr),
+      col = color_palette, axes = FALSE,
+      xlab = "Variables", ylab = "Observations",
+      main = "Heatplot of NAs ")
+
+axis(1, at = 1:ncol(rest_dat_NAs_distr), labels = colnames(rest_dat_NAs_distr), las = 2)
+
+legend("topright", legend = c("Present", "NA 11", "NA 12"),
+       fill = color_palette, cex = 0.8, x = 5, y = 1030)
+
+# It makes sense, since many people did not come by one of the two 
+# ways. Some may even come on foot so this non compilance makes lot of sense
+# especially because it's 'voluntary' incompilance.
+# The blue seems more random and a lot less distributed.
+# We can't infer exactly why g14d has so much 'voluntary' NAs, not enough knowledge
+# of the metadata of the data set!
+
+model <- lm(g27a~., data = restaurant_NA)
+summary(model)
+library(robustbase)
+robust_reg <- lmrob(g27a~ ., data = restaurant_NA)
+summary(robust_reg)
+restaurant_NA$g06 <- ifelse(!is.na(restaurant_NA$g06f) & !is.na(restaurant_NA$g06e),
+                            rowMeans(cbind(restaurant_NA$g06f, restaurant_NA$g06e), na.rm = TRUE),
+                            ifelse(!is.na(restaurant_NA$g06f), restaurant_NA$g06f,
+                                   ifelse(!is.na(restaurant_NA$g06e), restaurant_NA$g06e, NA)))
+restaurant_NA<-restaurant_NA[,-c(2,3)]
+# Running the LOO-CV, to compare our regular lm model with robus model based on error. We do this after indexing
+# It is done on imputed data so we can compute absoslute and l1 loss
+install.packages("mice")
+library(mice)
+
+# Need to specify random seed.
+restaurant_imp <- mice(restaurant_NA,m=5,seed=665544)
+# Creates m=5 imputed data sets using all variables for
+# imputation regression (m=5 is default)
+# We remove g27a
+pred <- restaurant_imp$predictorMatrix
+pred[,c("g27a")] <- 0
+restaurant_imp <- mice(restaurant_NA,pred=pred,seed=665544)
+
+imp_restaurant <- complete(restaurant_imp)
+vis_miss(imp_restaurant) 
+
+model2 <- lm(g27a~., data = imp_restaurant)
+summary(model2)
+library(robustbase) # This is needed for lmrob, robust regression
+
+n <- 1033
+prediction_vec <- rep(NA,1033)
+yhat <- numeric(n)
+for (i in 1:n){
+  lm3mm <- lmrob(g27a~ ., data = imp_restaurant[-i,]) # Fit without point i
+  yhat[i] <- predict(lm3mm,imp_restaurant[i,, drop = F]) # Prediction of y_i
+  prediction_vec[i] <- yhat[i]
+}
+sqloss1 <- sqrt(mean((yhat-imp_restaurant$g27a)^2))
+l1loss1 <- mean(abs(yhat-imp_restaurant$g27a))
+print(paste("For g27a SQLoss:", sqloss1, "L1Loss:", l1loss1))
+
+n <- 1033 #Number of observations
+prediction_vec2 <- rep(NA,1033)
+yhat <- numeric(n)
+for (i in 1:n){
+  fmi <-lm(g27a~., data = imp_restaurant[-i,]) # Fit without point i
+  yhat[i] <- predict(fmi,imp_restaurant[i,, drop = F]) # Prediction of y_i
+  prediction_vec2[i] <- yhat[i]
+}
+sqloss2 <- sqrt(mean((yhat - imp_restaurant$g27a)^2))
+l1loss2 <- mean(abs(yhat - imp_restaurant$g27a))
+print(paste("For g27a SQLoss:", sqloss2, "L1Loss:", l1loss2))
+#Prediction
+x <- seq(1,1033,1)
+plot(x, prediction_vec, xlab = "Observations",ylab ="g27a",main = "Comparison of model predictions for g27a", col = "green")
+points(x,imp_restaurant$g27a , col = "red")
+points(x,prediction_vec2, col = "purple")
+legend("topright", legend = c("True values", "Robust model", "Linear model"),
+       col = c("red", "green", "purple"), pch = c(1, 1, 1))
+
+# But we should not use g27a
+# The following forces g27a
+# out of imputation regression.
+pred <- restaurant_imp$predictorMatrix # Need restaurantimp from above.
+pred[,"g27a"] <- 0
+restaurant_fimp <- mice(restaurant_NA, pred=pred, seed=665544)
+
+# Store all the artificial datasets
+rest_mice <- list()
+rest_mice[[1]]  <- complete(restaurant_imp, 1)
+rest_mice[[1]]
+rest_mice[[2]] <- complete(restaurant_imp, 2)
+
+rest_mice[[3]]<- complete(restaurant_imp, 3)
+
+rest_mice[[4]] <- complete(restaurant_imp, 4)
+
+rest_mice[[5]] <- complete(restaurant_imp, 5)
+
+# All looks fine
+# Choose for our analysis the first generated
+rest_mice_1 <- rest_mice[[1]]
+rest_mice_2 <- rest_mice[[2]]
+rest_mice_3 <- rest_mice[[3]]
+rest_mice_4 <- rest_mice[[4]]
+rest_mice_5 <- rest_mice[[5]]
+
+# Check if all the artificial data sets are plausible
+# Also, it can be helpful to do something similar of 'Bootstrap' methods
+# that allows us to evaluate that in more ways to check if the differences
+# are significant or not.
+
+stripplot(restaurant_imp,  g07d + g08c + g09a + g09c + g09d + g13a + g13j + g14a + 
+            g14b + g14d + g15a + g15g + g15i + g15l + g16b + g06 ~ .imp, col = c("grey", mdc(2)), pch = c(1, 20), cex = 1.2)
+
+library(factoextra)
+
+pca <- prcomp(rest_mice[[4]][, -1], scale. = T)
+fviz_pca_var(pca, choix = 'var')
+
+
+lapply(rest_mice, cor)
+
+
+
+###############
+###############
+################
+library(ClustOfVar)
+
+rest_clust_var1 <- hclustvar(rest_mice_1[, -1])
+plot(rest_clust_var1)
+stability(rest_clust_var1)
+
+# Check if all the results looks compatible
+
+par(mfrow = c(2,2))
+
+
+rest_clust_var2 <- hclustvar(rest_mice_2[, -1])
+plot(rest_clust_var2)
+
+
+rest_clust_var3 <- hclustvar(rest_mice_3[, -1])
+plot(rest_clust_var3)
+
+
+rest_clust_var4 <- hclustvar(rest_mice_4[, -1])
+plot(rest_clust_var4)
+
+
+rest_clust_var5 <- hclustvar(rest_mice_5[, -1])
+plot(rest_clust_var5)
+
+
+# Those results tells us that the splitting of variables across the imputed 
+# data sets is quite robust (only one that slightly changes is mice_5)
+
+
+par(mfrow = c(2,2))
+
+stability(rest_clust_var2)
+
+stability(rest_clust_var3)
+
+stability(rest_clust_var4)
+
+stability(rest_clust_var5)
+
+# Clearly, following ARI, one should choose 3 or 5 clusters (maybe 5 is preferrable)
+# Note --> By the forwards analysis also on Cross Validation, we found out that 
+# considering 5 clusters is preferable and overall more complete
+
+par(mfrow= c(1,1))
+
+# 3 Clusters case
+rest_K3 <- cutreevar(rest_clust_var1, 3, matsim = T)
+rest_K3$sim
+head(rest_K3$scores)
+rest_K3$var
+rest_K3$cluster
+rest_K3$wss
+rest_K3$E
+rest_K3$coef
+
+# 5 Clusters case --> What we consider truly for our analysis
+rest_K5 <- cutreevar(rest_clust_var1, 5, matsim = T)
+rest_K5$sim
+head(rest_K5$scores)
+rest_K5$var # Include the correlation to assess which of the variables is more secure
+rest_K5$cluster # Obviously also include this
+rest_K5$wss
+rest_K5$E
+rest_K5$coef # Summarize the coefficients
+
+summary(prcomp(rest_mice_1[, 3:6]))
+cor(rest_mice_1[, 3:6])
+
+
+# Creation of syntetic variables through the first Principal Component
+sort(rest_K3$cluster)
+names(sort(rest_K3$cluster))
+K3_Clust1 <- c("g07d","g13a","g13j","g14a","g14b","g14d","g15a","g15g","g15i","g15l","g16b")
+K3_Clust2 <- c("g08c","g09a","g09c", "g09d" )
+K3_Clust3 <- "g06"
+
+
+sort(rest_K5$cluster)
+names(sort(rest_K5$cluster))
+
+K5_Clust1 <- c("g07d","g13a","g13j","g14a","g14b","g14d","g15a")
+K5_Clust2 <- c("g08c", "g09a","g09c", "g09d")
+K5_Clust3 <- c("g15g", "g15i", "g15l")
+K5_Clust4 <- "g16b"
+K5_Clust5 <- "g06"
+rest_K5_3$cluster
+
+prcomp(rest_mice_1)
+
+# Note that: the scores work as intended, hence we can store them.
+
+K3_rest_scores <- rest_K3$scores
+K5_rest_scores <- rest_K5$scores
+
+# Manually inspect that each of the Clusters, does not miss too much variation
+# in its approximation using the first pc only
+
+# K=3 CLUSTERS CHECK:
+summary(princomp(rest_mice_1[, K3_Clust1], cor = TRUE)) # 55% variation explained by PC1
+summary(princomp(rest_mice_1[, K3_Clust2], cor = TRUE)) # 67% variation explained by PC1
+summary(princomp(rest_mice_1[, K3_Clust3], cor = TRUE)) # trivial
+
+#K = 5 CLUSTERS CHECK:
+summary(princomp(rest_mice_1[, K5_Clust1], cor = TRUE)) # 66% var explained by PC1
+summary(princomp(rest_mice_1[, K5_Clust2], cor = TRUE)) # 67% var explained by PC1
+summary(princomp(rest_mice_1[, K5_Clust3], cor = TRUE)) # 69% var explained by PC1
+summary(princomp(rest_mice_1[, K5_Clust4], cor = TRUE)) #trivial
+summary(princomp(rest_mice_1[, K5_Clust5], cor = TRUE)) #trivial
+
+# Compare the following models:
+# 1) Full model RLS
+# 2) Basic PCA model --> then perform regression (robust)
+# 3) K=5 algorithm --> then perform regression (robust)
+
+# Note: I also tested the K=3 approach and it considerably decreases the performances
+
+# ROBUST REGRESSION AFTER CLUSTOFVAR() DIM. REDUCTION
+library(robustbase)
+summary(lmrob(rest_mice_1$g27a ~ ., as.data.frame(K3_rest_scores)))
+summary(lmrob(rest_mice_1$g27a ~ ., as.data.frame(K5_rest_scores)))
+
+# DO THE SAME FOR EACH IMPUTED DATA SET (ONLY FOR K = 5 CLUSTERS, OUR FINAL MODEL)
+rest_clust_var2 <- hclustvar(rest_mice_2[, -1])
+rest_clust_var3 <- hclustvar(rest_mice_3[, -1])
+rest_clust_var4 <- hclustvar(rest_mice_4[, -1])
+rest_clust_var5 <- hclustvar(rest_mice_5[, -1])
+
+rest_K5_2 <- cutreevar(rest_clust_var2, 5, matsim = T)
+rest_K5_3 <- cutreevar(rest_clust_var3, 5, matsim = T)
+rest_K5_4 <- cutreevar(rest_clust_var4, 5, matsim = T)
+rest_K5_5 <- cutreevar(rest_clust_var5, 5, matsim = T)
+
+K5_rest_scores_2 <- rest_K5_2$scores
+K5_rest_scores_3 <- rest_K5_3$scores
+K5_rest_scores_4 <- rest_K5_4$scores
+K5_rest_scores_5 <- rest_K5_5$scores
+
+summary(lmrob(rest_mice_1$g27a ~ ., as.data.frame(K5_rest_scores_2)))
+summary(lmrob(rest_mice_1$g27a ~ ., as.data.frame(K5_rest_scores_3)))
+summary(lmrob(rest_mice_1$g27a ~ ., as.data.frame(K5_rest_scores_4)))
+summary(lmrob(rest_mice_1$g27a ~ ., as.data.frame(K5_rest_scores_5)))
+
+# ALGORITHM FOR EVALUATION ON REGRESSION ON DIMENSIONALLY-REDUCED DATA.
+
+#>Split randomly a 70/30 proportion of training and test sets (do this 5 times in total, so that we have 5 training and 5 paired tests sets)
+#>Apply the function prcomp() and varclust() to the training sets
+#>select the first 3 PCS (for PCA) and 3 clusters (for variables varclust() algorithm)
+#>store the scores of PCA and the scores of varclust() (scores meaning the values in the 3 dimensional reduced-space)
+#>fit Linear Models to the scores for both PCA and VarClust
+#>transform the test sets using the coefficient previously stored, respectively from each resepective train set. The transformation is done using the first 3 pcs for the PCA case and using the first 3 clusters (coefficients) to transform it for VarClust.
+#>Calculate the distance from the regression line (obtained with the training set) for each point in the test set (that now is in a 3 dimensional space). 
+#>Calculate the MAE to assess the performance on all the paired test/train sets, to compare performances of those two predictive method
+
+
+###################################### 1)
+## 70/30 division of train and test sets
+smp_size <- floor(0.7 * nrow(rest_mice_1))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_test_rest_mice <- function(n) {
+  train_list_1 <- list()
+  test_list_1 <- list()
+  y_train <- list()
+  y_test <- list()
+  
+  for (i in 1:n) {
+    train_ind <- sample(seq_len(nrow(rest_mice_1)), size = smp_size)
+    # Save response values (assumed to be in the first column)
+    y_train[[i]] <- rest_mice_5[train_ind, 1]
+    y_test[[i]]  <- rest_mice_5[-train_ind, 1]
+    # Save predictors (all columns except the first)
+    train_list_1[[i]] <- rest_mice_5[train_ind, -1]
+    test_list_1[[i]]  <- rest_mice_5[-train_ind, -1]
+  }
+  return(list(train = train_list_1, test = test_list_1, y_train = y_train, y_test = y_test))
+}
+
+n_tests <- 30
+result <- train_test_rest_mice(n_tests)  # Generates n_test train-test splits
+# NOW WE COULD WORK SO THAT WE CAN EVALUATE THE PERFORMANCE OF OUR ALGORITHM
+
+
+#########################################
+n_dim_red <- 5
+######################################## 2)
+coeffs_pca <- list()
+scores_pca <- list()
+
+# PCA formation
+for (i in 1:n_tests) {
+  pca_model <- princomp(result$train[[i]], cor = TRUE)
+  coeffs_pca[[i]] <- pca_model$loadings[, 1:n_dim_red]      # loadings for first n_dim_red components
+  scores_pca[[i]] <- pca_model$scores[, 1:n_dim_red] 
+}
+# Uncomment to check the clustering
+
+#par(mfrow = c(5,4))
+train_clust_var <- list()
+split_train_clust <- list()
+coef_train_clust <- list()
+scores_train_clust <- list()
+
+for (i in 1:n_tests) {
+  train_clust_var[[i]] <- hclustvar(result$train[[i]])
+#  plot(train_clust_var[[i]])
+  split_train_clust[[i]] <- cutreevar(train_clust_var[[i]], n_dim_red, matsim = T)
+  coef_train_clust[[i]] <- split_train_clust[[i]]$coef
+  scores_train_clust[[i]] <- split_train_clust[[i]]$scores
+  split_train_clust[[i]]$cluster
+}
+split_train_clust[[1]]$cluster
+split_train_clust[[2]]$cluster
+split_train_clust[[3]]$cluster
+split_train_clust[[4]]$cluster
+split_train_clust[[5]]$cluster
+######################################### 3)
+# Fitting the robust regression on the training set
+
+library(robustbase)
+rlm_pca <- list()
+rlm_VarClust <- list()
+rlm_full <- list()
+nrow(scores_pca[[1]])
+
+for (i in 1:n_tests) {
+  rlm_pca[[i]] <- lmrob(formula = result$y_train[[i]] ~ ., data = as.data.frame(scores_pca[[i]]))
+  rlm_VarClust[[i]] <- lmrob(formula = result$y_train[[i]] ~ ., data = as.data.frame(scores_train_clust[[i]]))
+  rlm_full[[i]] <- lmrob(formula = result$y_train[[i]] ~ ., data = as.data.frame(result$train[[i]]))
+  rlm_pca[[i]]$coefficients
+  rlm_VarClust[[i]]$coefficients
+}
+
+################################### 4)
+# Transforming the datas in test set in pca and VarClust() reduced dimension
+
+# Function for transforming the VarClust() in the test using the training
+
+# ---- PCA TRANFORM ----
+PCA_test_data <- list()
+
+for (i in 1:n_tests) {
+  train_means <- colMeans(result$train[[i]])
+  train_sds <- apply(result$train[[i]], 2, sd)
+  test_std <- scale(result$test[[i]], center = train_means, scale = train_sds)
+  PCA_test_data[[i]] <- as.matrix(test_std) %*% coeffs_pca[[i]]
+}
+
+
+# --- VAR CLUST TRANSFORM
+transform_cluster <- function(coef_vector, test_data, cluster_vars) {
+  # coef_vector: a named numeric vector (or one-column matrix converted to vector)
+  #              where the first element is the constant ("const").
+  # test_data: a data frame or matrix containing test observations.
+  # cluster_vars: character vector of variable names for this cluster.
+  
+  # Ensure the test data columns are in the same order as in the coefficient vector (excluding "const")
+  var_names <- setdiff(names(coef_vector), "const")
+  
+  test_subset <- test_data[, var_names, drop = FALSE]
+  
+  # Compute for each observation: constant + sum( variable * coefficient )
+  transformed_scores <- apply(test_subset, 1, function(row_vals) {
+    sum(coef_vector * as.numeric(c(1, row_vals)))
+  })
+  
+  return(transformed_scores)
+}
+
+VarClust_test_data <- list()
+
+for (i in 1:n_tests) {
+  clusters <- names(coef_train_clust[[i]])
+  
+  varclust_scores <- sapply(clusters, function(cl) {
+ 
+    coef_vector <- coef_train_clust[[i]][[cl]][, 1]
+    
+    cluster_vars <- setdiff(rownames(coef_train_clust[[i]][[cl]]), "const")
+    
+   
+    transform_cluster(coef_vector, test_data = result$test[[i]], cluster_vars = cluster_vars)
+  })
+
+  VarClust_test_data[[i]] <- as.data.frame(varclust_scores)
+
+  colnames(VarClust_test_data[[i]]) <- clusters
+}
+
+# For verification, you can inspect the first few rows of one transformed test set:
+head(VarClust_test_data[[1]])
+tail(VarClust_test_data[[1]])
+
+################################# 5)
+# ------ PREDICTION LOSSES FOR ALL METHODS COMPARED
+L1_loss_full <- numeric(n_tests)
+L2_loss_full <- numeric(n_tests)
+L1_loss_pca <- numeric(n_tests)
+L1_loss_varclust <- numeric(n_tests)
+L2_loss_pca <- numeric(n_tests)
+L2_loss_varclust <- numeric(n_tests)
+
+for(i in 1:n_tests) { 
+  # Full model predictions:
+  pred_full <- predict(rlm_full[[i]], as.data.frame(result$test[[i]]))
+  # PCA predictions:
+  pred_pca <- predict(rlm_pca[[i]], as.data.frame(PCA_test_data[[i]]))
+  # VarClust predictions:
+  pred_varclust <- predict(rlm_VarClust[[i]], VarClust_test_data[[i]])
+
+  y_true <- result$y_test[[i]]
+  # Compute L1 and L2 losses for this split
+  L1_loss_full[i] <- mean(abs(y_true - pred_full))
+  L1_loss_pca[i] <- mean(abs(y_true - pred_pca))
+  L1_loss_varclust[i] <- mean(abs(y_true - pred_varclust))
+  L2_loss_full[i] <- sqrt(mean((y_true - pred_full)^2))
+  L2_loss_pca[i] <- sqrt(mean((y_true - pred_pca)^2))
+  L2_loss_varclust[i] <- sqrt(mean((y_true - pred_varclust)^2))
+}
+
+# Final Outputs
+# IMPORTANT NOTE: CHANGE MANUALLY THE IMPUTED MICE DATA SET TO CHECK FOR ALL THE
+# LOSSESS IN EACH MODEL. WE CAN STORE EVERY RESULT IN SOME LISTS W.R.T. EACH 
+# IMPUTED DATA-SET TO HAVE A MORE COMPLETE EVALUATION OF THE PERFORMANCES
+L1_loss_full
+L1_loss_pca
+L1_loss_varclust
+L2_loss_full
+L2_loss_pca
+L2_loss_varclust
+mean(L1_loss_full)
+mean(L1_loss_pca)
+mean(L1_loss_varclust)
+mean(L2_loss_full)
+mean(L2_loss_pca)
+mean(L2_loss_varclust)
+
+#rest_mice_CV <- list()    #remove and manually change imputed data sets
+
+rest_mice_CV[[5]] <- cbind(L1_loss_full,
+                           L1_loss_pca,
+                           L1_loss_varclust,
+                           L2_loss_full,
+                           L2_loss_pca,
+                           L2_loss_varclust)
+rest_mice_CV
+lapply(rest_mice_CV, colMeans)
+par(mfrow = c(1,1))
+
+##############
+##############
+library(ggplot2)
+library(reshape2)
+library(gridExtra)
+
+mice_1.parcoord <- t(rest_mice_CV[[1]])
+mice_2.parcoord <- t(rest_mice_CV[[2]])
+mice_3.parcoord <- t(rest_mice_CV[[3]])
+mice_4.parcoord <- t(rest_mice_CV[[4]])
+mice_5.parcoord <- t(rest_mice_CV[[5]])
+
+# Extract L1 losses and convert to a data frame
+# MICE 1)
+mice_1_L1.parcoord <- as.data.frame(mice_1.parcoord[c("L1_loss_full", "L1_loss_pca", "L1_loss_varclust"), ])
+mice_1_L1.parcoord$model <- rownames(mice_1_L1.parcoord)
+mice_1_L1_long <- melt(mice_1_L1.parcoord, id.vars = "model")
+# MICE 2)
+mice_2_L1.parcoord <- as.data.frame(mice_2.parcoord[c("L1_loss_full", "L1_loss_pca", "L1_loss_varclust"), ])
+mice_2_L1.parcoord$model <- rownames(mice_2_L1.parcoord)
+mice_2_L1_long <- melt(mice_2_L1.parcoord, id.vars = "model")
+# MICE 3)
+mice_3_L1.parcoord <- as.data.frame(mice_3.parcoord[c("L1_loss_full", "L1_loss_pca", "L1_loss_varclust"), ])
+mice_3_L1.parcoord$model <- rownames(mice_3_L1.parcoord)
+mice_3_L1_long <- melt(mice_3_L1.parcoord, id.vars = "model")
+# MICE 4)
+mice_4_L1.parcoord <- as.data.frame(mice_4.parcoord[c("L1_loss_full", "L1_loss_pca", "L1_loss_varclust"), ])
+mice_4_L1.parcoord$model <- rownames(mice_4_L1.parcoord)
+mice_4_L1_long <- melt(mice_4_L1.parcoord, id.vars = "model")
+# MICE 5)
+mice_5_L1.parcoord <- as.data.frame(mice_5.parcoord[c("L1_loss_full", "L1_loss_pca", "L1_loss_varclust"), ])
+mice_5_L1.parcoord$model <- rownames(mice_5_L1.parcoord)
+mice_5_L1_long <- melt(mice_5_L1.parcoord, id.vars = "model")
+
+
+# Extract L2 losses and convert to a data frame
+mice_1_L2.parcoord <- as.data.frame(mice_1.parcoord[c("L2_loss_full", "L2_loss_pca", "L2_loss_varclust"), ])
+mice_1_L2.parcoord$model <- rownames(mice_1_L2.parcoord)
+
+# Do that for each of the Data sets splits
+
+plot_mice_1_L1 <- ggplot(mice_1_L1_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L1 Loss across CV Splits for each Model, mice1",
+       x = "CV Split",
+       y = "L1 Loss") +
+  theme_minimal()
+
+plot_mice_2_L1 <- ggplot(mice_2_L1_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L1 Loss across CV Splits for each Model, mice2",
+       x = "CV Split",
+       y = "L1 Loss") +
+  theme_minimal()
+
+plot_mice_3_L1 <- ggplot(mice_3_L1_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L1 Loss across CV Splits for each Model, mice3",
+       x = "CV Split",
+       y = "L1 Loss") +
+  theme_minimal()
+
+plot_mice_4_L1 <- ggplot(mice_4_L1_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L1 Loss across CV Splits for each Model, mice4",
+       x = "CV Split",
+       y = "L1 Loss") +
+  theme_minimal()
+
+plot_mice_5_L1 <- ggplot(mice_5_L1_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L1 Loss across CV Splits for each Model, mice5",
+       x = "CV Split",
+       y = "L1 Loss") +
+  theme_minimal()
+
+plot_mice_1_L1
+grid.arrange(plot_mice_2_L1, plot_mice_3_L1, plot_mice_4_L1, plot_mice_5_L1)
+
+################
+################
+################
+# Extract L2 losses and convert to a data frame
+# MICE 1)
+mice_1_L2.parcoord <- as.data.frame(mice_1.parcoord[c("L2_loss_full", "L2_loss_pca", "L2_loss_varclust"), ])
+mice_1_L2.parcoord$model <- rownames(mice_1_L2.parcoord)
+mice_1_L2_long <- melt(mice_1_L2.parcoord, id.vars = "model")
+
+# MICE 2)
+mice_2_L2.parcoord <- as.data.frame(mice_2.parcoord[c("L2_loss_full", "L2_loss_pca", "L2_loss_varclust"), ])
+mice_2_L2.parcoord$model <- rownames(mice_2_L2.parcoord)
+mice_2_L2_long <- melt(mice_2_L2.parcoord, id.vars = "model")
+
+# MICE 3)
+mice_3_L2.parcoord <- as.data.frame(mice_3.parcoord[c("L2_loss_full", "L2_loss_pca", "L2_loss_varclust"), ])
+mice_3_L2.parcoord$model <- rownames(mice_3_L2.parcoord)
+mice_3_L2_long <- melt(mice_3_L2.parcoord, id.vars = "model")
+
+# MICE 4)
+mice_4_L2.parcoord <- as.data.frame(mice_4.parcoord[c("L2_loss_full", "L2_loss_pca", "L2_loss_varclust"), ])
+mice_4_L2.parcoord$model <- rownames(mice_4_L2.parcoord)
+mice_4_L2_long <- melt(mice_4_L2.parcoord, id.vars = "model")
+
+# MICE 5)
+mice_5_L2.parcoord <- as.data.frame(mice_5.parcoord[c("L2_loss_full", "L2_loss_pca", "L2_loss_varclust"), ])
+mice_5_L2.parcoord$model <- rownames(mice_5_L2.parcoord)
+mice_5_L2_long <- melt(mice_5_L2.parcoord, id.vars = "model")
+
+# Now create plots for each imputed dataset
+plot_mice_1_L2 <- ggplot(mice_1_L2_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L2 Loss across CV Splits for each Model, mice1",
+       x = "CV Split",
+       y = "L2 Loss") +
+  theme_minimal()
+
+plot_mice_2_L2 <- ggplot(mice_2_L2_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L2 Loss across CV Splits for each Model, mice2",
+       x = "CV Split",
+       y = "L2 Loss") +
+  theme_minimal()
+
+plot_mice_3_L2 <- ggplot(mice_3_L2_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L2 Loss across CV Splits for each Model, mice3",
+       x = "CV Split",
+       y = "L2 Loss") +
+  theme_minimal()
+
+plot_mice_4_L2 <- ggplot(mice_4_L2_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L2 Loss across CV Splits for each Model, mice4",
+       x = "CV Split",
+       y = "L2 Loss") +
+  theme_minimal()
+
+plot_mice_5_L2 <- ggplot(mice_5_L2_long, aes(x = variable, y = value, group = model, color = model)) +
+  geom_line() +
+  labs(title = "L2 Loss across CV Splits for each Model, mice5",
+       x = "CV Split",
+       y = "L2 Loss") +
+  theme_minimal()
+
+# Arrange all L2 plots in a grid
+plot_mice_1_L2
+grid.arrange(plot_mice_2_L2, plot_mice_3_L2, plot_mice_4_L2, plot_mice_5_L2)
+
+
+#######################
+####################### HEATPLOT FROM CLUSTOFVAR PACKAGE FOR VARIABLES
+#######################
+
+library(pheatmap)
+clusters <- rest_K5$cluster 
+ordered_vars <- names(sort(clusters))
+M <- as.matrix(rest_mice_1[, -1])
+# Order the columns of the matrix based on the clustering
+M_ordered <- M[, ordered_vars]
+
+# showing the cluster membership
+annotation_col <- data.frame(Cluster = factor(clusters[ordered_vars]))
+rownames(annotation_col) <- ordered_vars
+
+# Create a heatmap
+pheatmap(t(M_ordered), 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE, 
+         annotation_row = annotation_col,
+         main = "Heatmap of Variables Ordered by ClustOfVar Clustering")
+
+###################
+###################
+
+\end{lstlisting}
+
+\end{document}
+
+
+
+
