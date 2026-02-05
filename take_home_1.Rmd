@@ -1,0 +1,462 @@
+---
+title: "Homework Assignment 1"
+author: 
+- "Gianluca Fiorini MAT:0001223301"
+- "Tommaso Di Bene MAT:0001234555"
+- "Nikola Stevanovic MAT:0001231428"
+date: "2025-12-02"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+rm(list=ls())
+library(knitr)
+library(kableExtra)
+library(latex2exp)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### **Acknowledgement**
+
+We accept the code of conduct rules as stated by the professor.
+
+## Data
+
+Let $Y_1,\,...,\,Y_n$ be i.i.d., following a $\text{Uniform}(0,\theta)$
+distribution, $\theta>0$. The density common to the random variables is
+thus given by: $$f_Y(y;\,\theta)=\begin{cases}
+\frac{1}{\theta},\;\; y\in(0;\,\theta) \\
+0,\;\; \text{otherwise}
+\end{cases}$$ while the cumulative distribution function (CDF) common to
+the random variables is given by:$$F_Y(y;\,\theta)=\begin{cases}
+0,\;\; y\leq0 \\
+\frac{y}{\theta},\;\; 0<y<\theta \\
+1,\;\; y\ge\theta
+\end{cases}
+$$ In the following, we will focus on the maximum estimator for
+$\theta$, that is $\hat{\theta}:=Y_{(n)}=\text{max}\{Y_1,\,...,\,Y_n\}$.
+In particular, we will use Monte Carlo (MC) simulations to approximate
+variance, bias, and MSE of the estimator, and compare those
+approximations to exact results derived theoretically.
+
+## Theoretical Results
+
+Since the random variables $Y_1,\,...,\,Y_n$ are i.i.d., with CDF $F_Y$,
+the CDF of the maximum estimator $\hat{\theta}$, i.e. the n-th order
+statistic for the sample, is given
+by:$$F_{Y_{(n)}}(y;\,\theta)=[F_Y(y)]^n=\begin{cases}
+0,\;\; y\leq0 \\
+(\frac{y}{\theta})^n,\;\; 0<y<\theta \\
+1,\;\; y\geq\theta
+\end{cases}
+$$ From this CDF, we can also recover the density for the maximum
+estimator, by simply taking the partial derivative w.r.t. $\text{y}$. So
+we get that the density of the maximum estimator $\hat{\theta}$ is given
+by:$$
+f_{Y(n)}(y;\,\theta)= \frac{\partial}{\partial y}  F_{Y_{(n)}}(y)=\begin{cases}
+\frac{n}{\theta^{\,n}}y^{n-1},\;\; y\in(0;\,\theta) \\
+0,\;\; \text{otherwise}
+\end{cases}$$ We can now use this density to derive the theoretical
+quantities of interest, i.e. the bias, the variance, and the MSE of
+$\hat{\theta}$.
+$$Var(\hat{\theta})=E[(\hat{\theta}-E[\hat{\theta}])^2]=\int_{0}^{\theta}(\hat{\theta}-E[\hat{\theta}])^2\;f_{Y(n)}(y;\,\theta)dy=\frac{n\theta^2}{(n+2)(n+1)^2}$$
+$$Bias_\theta(\hat{\theta})=E[\hat{\theta}-\theta]=\int_{0}^{\theta}(\hat{\theta}-\theta)\;f_{Y(n)}(y;\,\theta)dy=-\frac{\theta}{n+1}$$
+$$ MSE_\theta(\hat{\theta})=E[(\hat{\theta}-\theta)^2]=Var(\hat{\theta})+Bias_\theta^2(\hat{\theta})=\frac{2\theta^2}{(n+1)(n+2)}$$
+
+## Monte Carlo Simulations
+
+Note that all of the quantities we are interested in can be rewritten in
+the form $E[g(\hat{\theta})] = E[g(\max\{Y_1,\,...,\,Y_n\})]$, for some
+suitable choice of $\text{g}$. For a chosen value of $\theta$, we can
+provide an approximation of $E[g(\hat{\theta})]$ using MC simulations as
+follows:
+
+1.  Set some sample size $n$, and a number of samples $B$ to simulate.
+2.  For $b=1,\,...,\,B$, generate a sample of size $n$ from the
+    $\text{Uniform}(0,\theta)$ distribution.
+3.  For each generated sample $Y_{1b},\,...,\,Y_{nb}$, $b=1,\,...,\,B$,
+    compute the value of the estimator
+    $\hat{\theta}_b:=\text{max}\{Y_{1b},\,...,\,Y_{nb}\}$ and
+    $g(\hat{\theta_b})$.
+4.  Compute the Monte Carlo estimator for the quantity of interest,
+    which is given by:
+    $$\hat{E}[g(\hat{\theta})]=\frac{1}{B}\sum_{i=1}^B g(\hat{\theta}_b)$$
+    By the law of large numbers,
+    $\hat{E}[g(\hat{\theta})] \to E[g(\hat{\theta})] \; \text{as} \; B \to +\infty$
+
+For the quantities of interest, choosing $g$ as appropriate, the Monte
+Carlo estimators are given by:
+$$ \widehat{Var}(\hat{\theta})=\widehat{E}[(\widehat{\theta}-\widehat{E}[\hat{\theta}])^2]=\frac{1}{B}\sum_{i=1}^B (\hat{\theta}_b- \bar{\hat{\theta}})^2,\;\;\;\;\text{so}\;\;g(\hat{\theta})=(\hat{\theta}- \bar{\hat{\theta}})^2$$
+
+$$\widehat{Bias}_\theta(\hat{\theta})=\widehat{E}[\hat{\theta}-\theta]=\frac{1}{B}\sum_{i=1}^B (\hat{\theta}_b-\theta),\;\;\;\;\text{so}\;\;g(\hat{\theta})=(\hat{\theta}- \theta)$$
+$$ \widehat{MSE}_\theta(\hat{\theta})=\widehat{E}[(\hat{\theta}-\theta)^2]=\frac{1}{B}\sum_{i=1}^B (\hat{\theta}_b-\theta)^2,\;\;\;\;\text{so}\;\;g(\hat{\theta})=(\hat{\theta}- {\theta})^2$$
+We Now present the code used to perform MC simulations and approximate
+the quantities of interest by simulation. In this case we set
+$\theta=1$, but any positive value could be used in principle. The
+simulation seed was set to "123" for all simulations. We started by
+defining a function `MC_sims`, which allows to generate $B$ i.i.d.
+samples of size $n$ from any arbitrary distribution and estimate our
+quantities of interest, and used it to draw samples from a
+$\text{Uniform}(0,\theta)$. Simulations were performed for several
+values of $n$, so that we could understand how our estimates are
+affected by sample size. For each choice of $n$, we generated $B=1000$
+samples, and used them to estimate the quantities of interest at
+different sample sizes, as stated above. For each choice of $n$, we also
+stored all $B$ realizations of the estimator $\hat{\theta_B}$.
+
+```{r}
+#Setting value of theta
+theta <- 1
+
+#Setting sample sizes
+n <- c(10, 20, 30, 50, 100, 200, 500, 1000)
+
+#Setting number of simulations
+B <- 1000
+#B <- 10000
+
+###MC simulations
+MC_sims <- function(theta, n, B, dist, seed=123) {
+  #setting seed
+  set.seed(123)
+  
+  #simulating values from dist
+  sims <- dist(n*B, theta) #Generating n*B iid realizations from the desired 
+                            #distribution with parameter theta
+  
+  #Creating a matrix for the results
+  sims_mat <- matrix(sims, ncol=n,
+                     nrow=B)
+  
+  #computing the value of the statistic for each sample 
+  theta_hat <- apply(sims_mat, 1, max)
+  
+  #Computing MC estimators for quantities of interest
+  #Variance
+  var_theta_mc <- var(theta_hat)*(B-1)/B
+  
+  #Bias
+  bias_theta_mc <- mean(theta_hat) - theta
+  
+  #MSE
+  MSE_theta_mc <- mean((theta_hat-theta)^2)
+  
+  #Reporting results
+  return(list(B=B,
+              n=n,
+              theta=theta,
+              theta_sims = theta_hat,
+              var_mc = var_theta_mc,
+              bias_mc = bias_theta_mc,
+              MSE_mc = MSE_theta_mc))
+
+}
+
+#Creating function for sampling from U(0, theta)
+dist <- function(size, param) {
+  runif(size, min=0, max=param)
+}
+
+temp <- MC_sims(theta, n[1], B, dist)
+
+###Storing results for different sample sizes, fixed B and fixed theta
+
+#data frames of different values of theta
+theta_df <- data.frame(n=numeric(0), theta_hats=numeric(0))
+
+#data frames of estimated and exact quantities of interest
+quant_of_interest <- data.frame(n=numeric(0),
+                         var_mc=numeric(0),
+                         bias_mc=numeric(0),
+                         MSE_mc=numeric(0),
+                         var_theo=numeric(0),
+                         bias_theo=numeric(0),
+                         MSE_theo=numeric(0))
+
+
+#Generating B iid samples for different choices of n and storing simulated values of estimator and
+#quantities of interest
+for(i in 1:length(n)){
+  temp <- MC_sims(theta, n[i], B, dist)
+  theta_df <- rbind(theta_df, data.frame(n=temp$n, theta_hats=temp$theta_sims))
+  quant_of_interest <- rbind(quant_of_interest,
+                             data.frame(n=temp$n,
+                                        var_mc=temp$var_mc,
+                                        bias_mc=temp$bias_mc,
+                                        MSE_mc=temp$MSE_mc,
+                                        var_theo=temp$n*theta^2/((temp$n+2)*(temp$n+1)^2),
+                                        bias_theo=-theta/(temp$n+1),
+                                        MSE_theo=2*theta^2/((temp$n+1)*(temp$n+2))))
+}
+```
+
+In the output below we report the MC estimates for the quantities of
+interest for different sample sizes (`_mc` variables), accompanied by
+the corresponding theoretical values (`_theo` variables).
+
+```{r, echo=F}
+  df_tmp1 <- lapply(quant_of_interest[,-1], formatC, format="e", digits=3) |> as.data.frame()
+  df_tmp1 <-cbind(n=n, df_tmp1)
+  kable(df_tmp1, format = "html", booktabs=T) |> 
+  kable_styling("striped", font_size = 12)
+```
+
+In the following plot, we present the box plot of the bias distribution
+across MC simulations for each sample size. We also include the true,
+theoretical values of the finite sample bias. As expected, for smaller
+sample sizes the bias distribution is more left skewed, but becomes more
+and more concentrated around the true bias, (and in turn towards $0$,
+due to the asymptotic behavior of the bias), as $n$ increases.
+
+```{r, fig.dim=c(10,7.5)}
+#Finite Sample bias distribution vs theoretical values
+theta_df$samp_bias <- theta_df$theta_hats - theta
+boxplot(samp_bias ~ n, data=theta_df, pch=19, cex=0.5,
+        main="Box plot of Bias Distribution",
+        xlab=TeX("$\\hat{theta_{b}}-theta$"),
+        ylab=TeX("n"),
+        horizontal = T)
+points(y=1:length(n),x=quant_of_interest$bias_theo, col = "red", pch=16)
+legend(x="topleft", col="red", pch=19, "Theoretical (finite sample) Bias")
+```
+
+In the following plots, instead, we provide the MC estimates for the
+quantities of interest for the different values of $n$ (black lines),
+compared with their true theoretical values (red lines line). In each
+plot, for the MC estimates, we also include the simulation error bounds.
+For each of the quantities of interest, *approximate* point-wise 95%
+simulation error bounds were used, based on the following formula:$$
+\text{CI}_{.95}({E}[g(\hat{\theta}))=\widehat{E}[g(\hat{\theta})] \pm z_{\alpha/2}\frac{\hat{\sigma_{\hat{\theta}}}}{\sqrt{B}}$$
+Where $\hat{\sigma_{\hat{\theta}}}$ is given by
+$\frac{1}{B}\sum_{b=1}^B\bigg(g(\hat{\theta}_b) - \overline{g(\hat{\theta}_b)}\bigg)^2$,
+and $g$ was chosen suitably for each quantity, as explained above.
+
+```{r, fig.dim=c(10,6)}
+#Computing simulation error bands
+alpha <- 0.5
+zalpha_2 <- qnorm(alpha/2)
+
+#The simulation error bound
+width_bias_mc <- width_MSE_mc <- width_var_mc <- numeric(0)
+
+for (i in 1:length(n)) { #Must be computed separately for different sample sizes
+  #For bias
+  sigma_hat_bias_mc <- sqrt(var(theta_df$theta_hats[theta_df$n == n[i]] - theta)*(B-1)/B)
+  width_bias_mc[i] <- zalpha_2*sigma_hat_bias_mc/sqrt(B) 
+  #For MSE
+  sigma_hat_MSE_mc <- sqrt(var((theta_df$theta_hats[theta_df$n == n[i]] - theta)^2)*(B-1)/B)
+  width_MSE_mc[i] <- zalpha_2*sigma_hat_MSE_mc/sqrt(B) 
+  #For Variance
+  sigma_hat_var_mc <- sqrt(var((theta_df$theta_hats[theta_df$n == n[i]]-
+                                  mean(theta_df$theta_hats[theta_df$n == n[i]]))^2)*(B-1)/B)
+  width_var_mc[i] <- zalpha_2*sigma_hat_var_mc/sqrt(B) 
+}
+
+
+###Plotting
+#MC Bias vs theoretical bias
+plot(1:length(n), quant_of_interest$bias_mc, type="b", lwd = 1.5, xaxt = "n",
+     cex=0.8, main="MC Bias vs. Theoretical Bias", ylab="Bias", xlab="n")
+lines(1:length(n), quant_of_interest$bias_mc+width_bias_mc, type="l", lwd = 1.5, col = "green")
+lines(1:length(n), quant_of_interest$bias_mc-width_bias_mc, type="l", lwd = 1.5, col = "green")
+lines(1:length(n), quant_of_interest$bias_theo, type="b", col = "red", lty=2, lwd = 1.5,
+      pch=19, cex = 0.4)
+axis(1,at=1:length(n),labels=as.character(n))
+legend(x="bottomright", c( "MC estimate of Bias","95% Simulation error bounds", "Theoretical Bias"), lty=c(1,1,2), col=c("black", "green", "red"))
+
+#MC Var vs theoretical Var
+plot(1:length(n), quant_of_interest$var_mc, type="b", lwd = 1.5,  xaxt = "n",
+      cex=0.8, main="MC Variance vs. Theoretical Variance", ylab="Variance", xlab="n")
+lines(1:length(n), quant_of_interest$var_mc+width_var_mc, type="l", lwd = 1.5, col = "green")
+lines(1:length(n), quant_of_interest$var_mc-width_var_mc, type="l", lwd = 1.5, col = "green")
+lines(1:length(n), quant_of_interest$var_theo, type="b", col = "red", lty=2, lwd = 1.5,
+      pch=19, cex = 0.4)
+axis(1,at=1:length(n),labels=as.character(n))
+legend(x="topright", c( "MC estimate of Bias","95% Simulation error bounds", "Theoretical Bias"), lty=c(1,1,2), col=c("black", "green", "red"))
+
+#MC MSE vs theoretical MSE
+plot(1:length(n), quant_of_interest$MSE_mc, type="b", lwd = 1.5,  xaxt = "n",
+     cex=0.8, main="MC MSE vs. Theoretical MSE", ylab="MSE", xlab="n")
+lines(1:length(n), quant_of_interest$MSE_mc+width_MSE_mc, type="l", lwd = 1.5, col = "green")
+lines(1:length(n), quant_of_interest$MSE_mc-width_MSE_mc, type="l", lwd = 1.5, col = "green")
+lines(1:length(n), quant_of_interest$MSE_theo, type="b", col = "red", lty=2, lwd = 1.5,
+      pch=19, cex = 0.4)
+axis(1,at=1:length(n),labels=as.character(n))
+legend(x="topright", c( "MC estimate of MSE","95% Simulation error bounds", "Theoretical MSE"), lty=c(1,1,2), col=c("black", "green", "red"))
+
+
+
+```
+
+## Additional Questions
+
+1.  To run MC simulations we needed to make choices concerning 3
+    parameters: $\theta$, $n$, and $B$. $\theta$ is the population
+    parameter that governs our distribution. It is assumed known in MC
+    simulations, so we arbitrarily set $\theta=1$, although any positive
+    value could have been used. (To answer one of the following
+    questions we did in fact perform simulations using different choices
+    of $\theta$). $B$ is the number of samples we simulate from the
+    population. In order to get reliable MC estimates of the quantities
+    of interest it must be fairly large, so we chose $B=1000$. Of
+    course, larger values would've led to more accurate MC estimates.
+    Finally, $n$ is the sample size, i.e. the size of each of the $B$
+    samples that we generate in MC simulations. We chose several values
+    of $n$ to perform simulations so that we could understand the
+    behavior of the MC estimator as the sample size varies, while $B$
+    and $\theta$ are kept fixed.
+
+    An additional parameter that could be set is the simulation seed,
+    which is needed for reproducibility. We set the simulation seed to
+    $123$, as requested by the assignment.
+
+2.  Yes, there are differences in the accuracy of MC simulations across
+    different sample sizes. This can clearly be seen from the plots
+    presented above, where, as the sample size increases, the MC
+    estimates get closer and closer to the theoretical quantities, and
+    the simulation error bounds become tighter and tighter. This
+    intuitively makes sense, because, as $B$ and $\theta$ are kept
+    fixed, increases in the sample size mean that, for each of the $B$
+    simulated samples, the simulated $\hat{\theta_b}$ will be closer to
+    the true value of the parameter on average, and present a lower
+    amount of variability. This means that our MC estimates, although
+    based on the same number of simulated values, will actually involve
+    more accurate estimates $\hat{\theta_b}$ for large $n$, and in turn
+    provide better accuracy themselves.
+
+3.  To answer this question, we fixed $B=1000$ and $n=100$, then ran MC
+    simulations for several choices of $\theta$, and produced plots
+    analogous for the ones used above to gauge the effect of different
+    parameter values on the MC estimates of our quantities of interest.
+    Other values of $n$ were also tried [not reported].
+
+    As we can see from these plots, it seems that for fixed $n$ and $B$,
+    the MC estimates become less accurate as $\theta$ increases. The
+    loss in accuracy as $\theta$ grows becomes more pronounced for
+    smaller values of $n$. This makes sense because, by increasing the
+    value of $\theta$, we are widening the support of the underlying
+    distribution ($\text{Uniform}(0,\theta)$) and introducing additional
+    variability, which in turn reduces the accuracy of our MC
+    simulations. By widening the support of the distribution while
+    keeping $n$ and $B$ fixed we lose accuracy because it becomes more
+    difficult to adequately explore the new support with the same number
+    of simulated values.
+
+```{r, fig.dim=c(10,7)}
+###MC Simulations for different theta values
+theta <- c(0.1,0.25,0.5,1,1.5,2,5,10)
+n <- 100
+B <- 1000
+
+dist <- function(size, param) {
+  runif(size, min=0, max=param)
+}
+
+#data frames of different values of theta
+theta_df <- data.frame(n=numeric(0), theta=numeric(0), theta_hats=numeric(0))
+
+#data frames of estimated and exact quantities of interest
+quant_of_interest <- data.frame(n=numeric(0),
+                                var_mc=numeric(0),
+                                bias_mc=numeric(0),
+                                MSE_mc=numeric(0),
+                                var_theo=numeric(0),
+                                bias_theo=numeric(0),
+                                MSE_theo=numeric(0))
+
+for(i in 1:length(theta)){
+  temp <- MC_sims(theta[i], n, B, dist)
+  theta_df <- rbind(theta_df, data.frame(n=temp$n, theta=temp$theta, theta_hats=temp$theta_sims))
+  quant_of_interest <- rbind(quant_of_interest,
+                             data.frame(n=temp$n,
+                                        theta=temp$theta,
+                                        var_mc=temp$var_mc,
+                                        bias_mc=temp$bias_mc,
+                                        MSE_mc=temp$MSE_mc,
+                                        var_theo=temp$n*temp$theta^2/((temp$n+2)*(temp$n+1)^2),
+                                        bias_theo=-temp$theta/(temp$n+1),
+                                        MSE_theo=2*temp$theta^2/((temp$n+1)*(temp$n+2))))
+}
+
+#Finite Sample bias distribution vs theoretical values
+theta_df$samp_bias <- theta_df$theta_hats - theta_df$theta
+boxplot(samp_bias ~ theta, data=theta_df, pch=19, cex=0.5, alpha = 0.5,
+        main="Box plot of Bias Distribution",
+        xlab=TeX("$\\hat{theta_{b}}-theta$"),
+        ylab=TeX("$\\theta"),
+        horizontal = T)
+points(y=1:length(theta),x=quant_of_interest$bias_theo, col = "red", pch=16)
+legend(x="bottomleft", col="red", pch=19, "Theoretical (finite sample) Bias")
+
+#Computing simulation error bands
+alpha <- 0.5
+zalpha_2 <- qnorm(alpha/2)
+
+w_theta_MSE <- w_theta_bias <- w_theta_var <- numeric(0)
+
+#The simulation error bound
+for (i in 1:length(theta)) {
+  #For bias
+  sigma_hat_bias_mc <- sqrt(var(theta_df$theta_hats[theta_df$theta == theta[i]] - theta[i])*(B-1)/B)
+  w_theta_bias[i] <- zalpha_2*sigma_hat_bias_mc/sqrt(B) 
+  #For MSE
+  sigma_hat_MSE_mc <- sqrt(var((theta_df$theta_hats[theta_df$theta == theta[i]] - theta[i])^2)*(B-1)/B)
+  w_theta_MSE[i] <- zalpha_2*sigma_hat_MSE_mc/sqrt(B) 
+  #For Variance
+  sigma_hat_var_mc <- sqrt(var((theta_df$theta_hats[theta_df$theta == theta[i]]-
+                                  mean(theta_df$theta_hats[theta_df$theta == theta[i]]))^2)*(B-1)/B)
+  w_theta_var[i] <- zalpha_2*sigma_hat_var_mc/sqrt(B) 
+}
+
+
+#MC Bias vs theoretical bias
+plot(1:length(theta), quant_of_interest$bias_mc, type="b", lwd = 1.5, xaxt = "n",
+     cex=0.8, main="MC Bias vs. Theoretical Bias", ylab="Bias", xlab=TeX("$\\theta"))
+lines(1:length(theta), quant_of_interest$bias_mc+w_theta_bias, type="l", lwd = 1.5, col = "green")
+lines(1:length(theta), quant_of_interest$bias_mc-w_theta_bias, type="l", lwd = 1.5, col = "green")
+lines(1:length(theta), quant_of_interest$bias_theo, type="b", col = "red", lty=2, lwd = 1.5,
+      pch=19, cex = 0.4)
+axis(1,at=1:length(theta),labels=as.character(theta))
+legend(x="bottomleft", c( "MC estimate of Bias","95% Simulation error bounds", "Theoretical Bias"), lty=c(1,1,2), col=c("black", "green", "red"))
+
+#MC Var vs theoretical Var
+plot(1:length(theta), quant_of_interest$var_mc, type="b", lwd = 1.5, xaxt = "n",
+     cex=0.8, main="MC Variance vs. Theoretical Variance", ylab="Variance", xlab=TeX("$\\theta"))
+lines(1:length(theta), quant_of_interest$var_mc+w_theta_var, type="l", lwd = 1.5, col = "green")
+lines(1:length(theta), quant_of_interest$var_mc-w_theta_var, type="l", lwd = 1.5, col = "green")
+lines(1:length(theta), quant_of_interest$var_theo, type="b", col = "red", lty=2, lwd = 1.5,
+      pch=19, cex = 0.4)
+axis(1,at=1:length(theta),labels=as.character(theta))
+legend(x="topleft", c( "MC estimate of Variance","95% Simulation error bounds", "Theoretical Variance"), lty=c(1,1,2), col=c("black", "green", "red"))
+
+#MC MSE vs theoretical MSE
+plot(1:length(theta), quant_of_interest$MSE_mc, type="b", lwd = 1.5, xaxt = "n",
+     cex=0.8, main="MC MSE vs. Theoretical MSE", ylab="MSE", xlab=TeX("$\\theta"))
+lines(1:length(theta), quant_of_interest$MSE_mc+w_theta_MSE, type="l", lwd = 1.5, col = "green")
+lines(1:length(theta), quant_of_interest$MSE_mc-w_theta_MSE, type="l", lwd = 1.5, col = "green")
+lines(1:length(theta), quant_of_interest$MSE_theo, type="b", col = "red", lty=2, lwd = 1.5,
+      pch=19, cex = 0.4)
+axis(1,at=1:length(theta),labels=as.character(theta))
+legend(x="topleft", c( "MC estimate of MSE","95% Simulation error bounds", "Theoretical MSE"), lty=c(1,1,2), col=c("black", "green", "red"))
+
+
+```
+
+4.  Based on the plots we computed earlier, the difference between the
+    MC estimates of bias, variance, and MSE, accounting for the
+    simulation error, and the true theoretical values is large for small
+    $n$, and decreases as the sample size grows, (assuming $B$ and
+    $\theta$ fixed). This is expected, because, as mentioned earlier, by
+    increasing $n$ we are working with higher-quality, (i.e. more
+    accurate and less variable), estimates of the parameter from each
+    simulated sample, so that the convergence of the MC estimator
+    towards the true theoretical value occurs more quickly as
+    $B \to +\infty$. Clearly, this implies that while keeping $B$ fixed
+    and increasing $n$ we are still improving the quality of our MC
+    estimates. Moreover, for analogous reasons, increases in the value
+    of $n$ while $B$ remains fixed also reduce the simulation error
+    bounds, which means that we are more and more confident in our
+    estimates.
